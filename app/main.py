@@ -6,11 +6,17 @@ import numpy as np
 from flask import Flask, jsonify, request
 from prometheus_client import Counter, Histogram
 from prometheus_flask_exporter import PrometheusMetrics
+from prometheus_flask_exporter.multiprocess import GunicornInternalPrometheusMetrics
 
 from app.inference import CLASS_NAMES, Detector
 
 app = Flask(__name__)
-metrics = PrometheusMetrics(app)  # tự tạo /metrics + flask_http_request_*
+# Gunicorn nhiều worker: mỗi worker ghi metrics ra PROMETHEUS_MULTIPROC_DIR,
+# /metrics gộp lại từ mọi worker. Chạy `flask run`/pytest thì dùng bản thường.
+if os.getenv("PROMETHEUS_MULTIPROC_DIR"):
+    metrics = GunicornInternalPrometheusMetrics(app)
+else:
+    metrics = PrometheusMetrics(app)  # tự tạo /metrics + flask_http_request_*
 
 INFER_SECONDS = Histogram(
     "model_inference_seconds", "Thời gian chạy onnxruntime cho 1 ảnh",
