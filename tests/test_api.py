@@ -1,0 +1,73 @@
+import io
+from pathlib import Path
+
+import cv2
+import numpy as np
+import pytest
+
+from app.main import app
+
+SAMPLE_DIR = Path("/home/xuand/vn_traffic_ai/data/merged_v5/images/test")
+
+
+@pytest.fixture
+def client():
+    app.config["TESTING"] = True
+    return app.test_client()
+
+
+def _jpg(img):
+    return io.BytesIO(cv2.imencode(".jpg", img)[1].tobytes())
+
+
+def test_health(client):
+    r = client.get("/health")
+    assert r.status_code == 200
+    assert r.json["classes"] == ["motorcycle", "car", "bus", "truck"]
+
+
+def test_predict_blank_image(client):
+    img = np.full((480, 640, 3), 114, np.uint8)
+    r = client.post("/predict", data={"file": (_jpg(img), "blank.jpg")})
+    assert r.status_code == 200
+    assert r.json["image_size"] == [640, 480]
+    assert r.json["count"] == len(r.json["detections"])
+
+
+@pytest.mark.skipif(not SAMPLE_DIR.exists(), reason="không có ảnh test của repo train")
+def test_predict_real_image(client):
+    p = sorted(SAMPLE_DIR.glob("*.jpg"))[0]
+    with open(p, "rb") as f:
+        r = client.post("/predict", data={"file": (f, p.name)})
+    assert r.status_code == 200
+    dets = r.json["detections"]
+    assert len(dets) > 0
+    w, h = r.json["image_size"]
+    for d in dets:
+        x1, y1, x2, y2 = d["bbox"]
+        assert 0 <= x1 < x2 <= w and 0 <= y1 < y2 <= h
+        assert d["class"] in ("motorcycle", "car", "bus", "truck")
+        assert 0.25 <= d["confidence"] <= 1
+
+
+def test_predict_missing_file(client):
+    assert client.post("/predict").status_code == 400
+
+
+def test_predict_not_an_image(client):
+    r = client.post("/predict", data={"file": (io.BytesIO(b"hello"), "x.jpg")})
+    assert r.status_code == 400
+
+
+@pytest.mark.parametrize("conf", ["abc", "1.5", "-0.1"])
+def test_predict_bad_conf(client, conf):
+    img = np.zeros((64, 64, 3), np.uint8)
+    r = client.post(f"/predict?conf={conf}", data={"file": (_jpg(img), "a.jpg")})
+    assert r.status_code == 400
+
+
+def test_metrics(client):
+    client.get("/health")
+    body = client.get("/metrics").data.decode()
+    assert "flask_http_request_duration_seconds" in body
+    assert "model_inference_seconds" in body
