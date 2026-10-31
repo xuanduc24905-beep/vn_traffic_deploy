@@ -71,3 +71,18 @@ def test_metrics(client):
     body = client.get("/metrics").data.decode()
     assert "flask_http_request_duration_seconds" in body
     assert "model_inference_seconds" in body
+
+
+def test_predict_overloaded_returns_503(client, monkeypatch):
+    import threading
+
+    import app.main as main
+
+    full = threading.BoundedSemaphore(1)
+    full.acquire()  # giả lập đã đủ MAX_INFLIGHT request đang xử lý
+    monkeypatch.setattr(main, "_inflight", full)
+    img = np.zeros((64, 64, 3), np.uint8)
+    r = client.post("/predict", data={"file": (_jpg(img), "a.jpg")})
+    assert r.status_code == 503
+    assert r.headers["Retry-After"] == "1"
+    assert client.get("/health").status_code == 200

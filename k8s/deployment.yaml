@@ -34,8 +34,16 @@ spec:
             # Scale theo chiều ngang bằng số pod -> mỗi pod 1 worker
             - name: GUNICORN_WORKERS
               value: "1"
+            - name: GUNICORN_THREADS
+              value: "8"
             - name: ORT_THREADS
               value: "2"  # khớp limits.cpu
+            # Backpressure (app/main.py): 1 inference/lần, tối đa 4 /predict trong pod,
+            # vượt quá trả 503 + Retry-After ngay
+            - name: INFER_CONCURRENCY
+              value: "1"
+            - name: MAX_INFLIGHT
+              value: "4"
           resources:
             requests:
               cpu: 500m
@@ -49,9 +57,11 @@ spec:
               port: http
             initialDelaySeconds: 3
             periodSeconds: 5
+            timeoutSeconds: 3
+          # Liveness chỉ kiểm tra process còn nhận kết nối, không phụ thuộc tải:
+          # quá tải mà kill pod thì mất thêm capacity -> sụp dây chuyền (load test lượt 1)
           livenessProbe:
-            httpGet:
-              path: /health
+            tcpSocket:
               port: http
             initialDelaySeconds: 15
             periodSeconds: 10

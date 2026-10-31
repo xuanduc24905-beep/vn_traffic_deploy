@@ -7,6 +7,11 @@ from prometheus_flask_exporter.multiprocess import GunicornInternalPrometheusMet
 
 bind = os.getenv("GUNICORN_BIND", "0.0.0.0:8000")
 workers = int(os.getenv("GUNICORN_WORKERS", "2"))
+# gthread: mỗi worker nhiều thread -> /health vẫn trả lời khi các thread khác đang
+# chạy inference. Với worker "sync", probe K8s bị kẹt sau hàng đợi /predict lúc quá tải
+# -> liveness fail -> pod bị restart dây chuyền (đã gặp khi load test).
+worker_class = os.getenv("GUNICORN_WORKER_CLASS", "gthread")
+threads = int(os.getenv("GUNICORN_THREADS", "8"))  # > MAX_INFLIGHT (app/main.py)
 timeout = 60
 accesslog = "-"
 forwarded_allow_ips = "*"  # tin X-Forwarded-* từ Nginx

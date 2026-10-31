@@ -1,3 +1,4 @@
 -r requirements.txt
 pytest==9.2.0
 # export/verify ONNX (scripts/) cần thêm: ultralytics
+locust==2.47.0

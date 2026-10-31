@@ -1,0 +1,3 @@
+Method,Name,Error,Occurrences,First Seen,Last Seen
+GET,/health,HTTPError('502 Server Error: Bad Gateway for url: /health'),42,2026-10-31T15:30:00Z,2026-10-31T15:30:10Z
+POST,/predict,CatchResponseError('HTTP 502'),444,2026-10-31T15:30:00Z,2026-10-31T15:30:11Z
