@@ -1,7 +1,0 @@
-flask>=3.0
-gunicorn>=22.0
-onnxruntime>=1.18
-opencv-python-headless>=4.8
-numpy
-prometheus-flask-exporter>=0.23
-pytest
