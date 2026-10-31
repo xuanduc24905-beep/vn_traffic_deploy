@@ -1,3 +1,5 @@
+import os
+
 import cv2
 import numpy as np
 import onnxruntime as ort
@@ -10,7 +12,11 @@ class Detector:
         self.model_path = model_path
         self.imgsz = imgsz
         self.iou_thres = iou_thres  # 0.7 = mặc định của ultralytics predict
-        self.session = ort.InferenceSession(model_path, providers=["CPUExecutionProvider"])
+        opts = ort.SessionOptions()
+        # Mặc định onnxruntime mở thread = số core của máy, kể cả khi pod bị giới hạn CPU
+        # -> bị throttle. ORT_THREADS=0 nghĩa là để onnxruntime tự chọn.
+        opts.intra_op_num_threads = int(os.getenv("ORT_THREADS", "0"))
+        self.session = ort.InferenceSession(model_path, opts, providers=["CPUExecutionProvider"])
         self.input_name = self.session.get_inputs()[0].name
 
     def _letterbox(self, img):

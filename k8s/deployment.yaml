@@ -1,0 +1,58 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: vn-traffic-api
+  labels:
+    app: vn-traffic-api
+spec:
+  replicas: 3
+  selector:
+    matchLabels:
+      app: vn-traffic-api
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxUnavailable: 0
+      maxSurge: 1
+  template:
+    metadata:
+      labels:
+        app: vn-traffic-api
+      annotations:
+        prometheus.io/scrape: "true"
+        prometheus.io/port: "8000"
+        prometheus.io/path: /metrics
+    spec:
+      containers:
+        - name: api
+          image: vn-traffic-api:latest
+          imagePullPolicy: Never  # image build local trong Docker Desktop, không kéo từ registry
+          ports:
+            - name: http
+              containerPort: 8000
+          env:
+            # Scale theo chiều ngang bằng số pod -> mỗi pod 1 worker
+            - name: GUNICORN_WORKERS
+              value: "1"
+            - name: ORT_THREADS
+              value: "2"  # khớp limits.cpu
+          resources:
+            requests:
+              cpu: 500m
+              memory: 384Mi
+            limits:
+              cpu: "2"
+              memory: 1Gi
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: http
+            initialDelaySeconds: 3
+            periodSeconds: 5
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: http
+            initialDelaySeconds: 15
+            periodSeconds: 10
+            failureThreshold: 3

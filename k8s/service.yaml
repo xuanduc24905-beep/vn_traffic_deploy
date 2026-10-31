@@ -1,0 +1,17 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: vn-traffic-api
+  labels:
+    app: vn-traffic-api
+spec:
+  # Docker Desktop (kind) không map LoadBalancer ra localhost, nên mở NodePort cố định
+  # và đặt Nginx (docker/nginx-k8s.conf) phía trước cluster làm proxy.
+  type: NodePort
+  selector:
+    app: vn-traffic-api
+  ports:
+    - name: http
+      port: 8080
+      targetPort: http
+      nodePort: 30080
