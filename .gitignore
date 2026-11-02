@@ -1,3 +1,8 @@
 __pycache__/
 *.pyc
 .pytest_cache/
+*.vsix
+node_modules/
+# Báo cáo có thông tin cá nhân (MSSV) -> chỉ giữ trên máy
+docs/report/*.docx
+docs/report/build_report.py

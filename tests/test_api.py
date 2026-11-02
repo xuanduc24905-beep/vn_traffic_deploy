@@ -1,4 +1,5 @@
 import io
+import os
 from pathlib import Path
 
 import cv2
@@ -86,3 +87,31 @@ def test_predict_overloaded_returns_503(client, monkeypatch):
     assert r.status_code == 503
     assert r.headers["Retry-After"] == "1"
     assert client.get("/health").status_code == 200
+
+
+def test_history_without_database(client):
+    # Không đặt DATABASE_URL -> API vẫn chạy, chỉ báo không có lịch sử
+    assert client.get("/history").status_code == 503
+    assert client.get("/stats").status_code == 503
+    assert client.get("/health").json["database"] is False
+
+
+@pytest.mark.skipif(not os.getenv("TEST_DATABASE_URL"), reason="cần TEST_DATABASE_URL (Postgres đã chạy init.sql)")
+def test_predict_saves_history(monkeypatch):
+    import app.db as db
+
+    monkeypatch.setenv("DATABASE_URL", os.environ["TEST_DATABASE_URL"])
+    db.init()
+    db._pool.wait(timeout=10)
+    try:
+        c = app.test_client()
+        img = np.full((480, 640, 3), 114, np.uint8)
+        r = c.post("/predict", data={"file": (_jpg(img), "blank.jpg")}, headers={"User-Agent": "pytest"})
+        rid = r.json["id"]
+        assert rid is not None
+        items = c.get("/history?limit=5").json["items"]
+        assert items[0]["id"] == rid and items[0]["filename"] == "blank.jpg" and items[0]["client"] == "pytest"
+        assert c.get("/stats").json["predictions"] >= 1
+    finally:
+        db._pool.close()
+        db._pool = None

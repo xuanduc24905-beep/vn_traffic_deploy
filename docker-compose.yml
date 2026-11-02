@@ -6,8 +6,27 @@ services:
     image: vn-traffic-api:latest
     environment:
       GUNICORN_WORKERS: "2"
+      DATABASE_URL: postgresql://vntraffic:vntraffic-demo@postgres:5432/vntraffic
     expose:
       - "8000"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    restart: unless-stopped
+
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: vntraffic
+      POSTGRES_PASSWORD: vntraffic-demo  # chỉ dùng cho demo local
+      POSTGRES_DB: vntraffic
+    volumes:
+      - ./docker/postgres:/docker-entrypoint-initdb.d:ro
+      - postgres-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD", "pg_isready", "-U", "vntraffic", "-d", "vntraffic"]
+      interval: 5s
+      retries: 10
     restart: unless-stopped
 
   nginx:
@@ -48,5 +67,6 @@ services:
     restart: unless-stopped
 
 volumes:
+  postgres-data:
   prometheus-data:
   grafana-data:

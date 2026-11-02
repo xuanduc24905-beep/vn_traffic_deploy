@@ -1,4 +1,5 @@
 import os
+import socket
 import threading
 import time
 
@@ -9,6 +10,7 @@ from prometheus_client import Counter, Histogram
 from prometheus_flask_exporter import PrometheusMetrics
 from prometheus_flask_exporter.multiprocess import GunicornInternalPrometheusMetrics
 
+from app import db
 from app.inference import CLASS_NAMES, Detector
 
 app = Flask(__name__)
@@ -30,6 +32,8 @@ DETECTIONS = Counter("model_detections_total", "Số object phát hiện", ["cla
 REJECTED = Counter("predict_rejected_total", "Số request /predict bị từ chối (503) vì quá tải")
 
 detector = Detector(os.getenv("MODEL_PATH", "models/best.onnx"))
+db.init()
+HOSTNAME = socket.gethostname()  # trong K8s = tên pod -> thấy được request rơi vào replica nào
 
 # Backpressure (mỗi process):
 # - INFER_CONCURRENCY: số inference chạy song song. Inference đã dùng ORT_THREADS core,
@@ -46,7 +50,8 @@ _infer_slots = threading.BoundedSemaphore(int(os.getenv("INFER_CONCURRENCY", "1"
 @app.get("/health")
 @metrics.do_not_track()
 def health():
-    return jsonify(status="ok", model=detector.model_path, classes=CLASS_NAMES)
+    return jsonify(status="ok", model=detector.model_path, classes=CLASS_NAMES,
+                   served_by=HOSTNAME, database=db.enabled())
 
 
 @app.post("/predict")
@@ -86,9 +91,49 @@ def _predict(f):
         DETECTIONS.labels(class_name=d["class"]).inc()
 
     h, w = img.shape[:2]
+    inference_ms = round(dt * 1000, 2)
+    record_id = db.save_prediction(
+        filename=f.filename, image_size=(w, h), dets=dets, inference_ms=inference_ms, conf=conf,
+        served_by=HOSTNAME, client=request.headers.get("User-Agent", "")[:200],
+    )
     return jsonify(
         detections=dets,
         count=len(dets),
         image_size=[w, h],
-        inference_ms=round(dt * 1000, 2),
+        inference_ms=inference_ms,
+        served_by=HOSTNAME,
+        id=record_id,
     )
+
+
+def _db_required():
+    if not db.enabled():
+        return jsonify(error="chưa cấu hình DATABASE_URL, không có lịch sử"), 503
+    return None
+
+
+@app.get("/history")
+def history():
+    if (r := _db_required()) is not None:
+        return r
+    try:
+        limit = min(max(int(request.args.get("limit", 20)), 1), 200)
+    except ValueError:
+        return jsonify(error="limit phải là số nguyên"), 400
+    full = request.args.get("full") in ("1", "true")
+    try:
+        return jsonify(items=db.history(limit, full))
+    except Exception as e:
+        db.DB_ERRORS.labels(op="history").inc()
+        return jsonify(error=f"lỗi database: {e.__class__.__name__}"), 503
+
+
+@app.get("/stats")
+def stats():
+    if (r := _db_required()) is not None:
+        return r
+    try:
+        return jsonify(db.stats())
+    except Exception as e:
+        db.DB_ERRORS.labels(op="stats").inc()
+        return jsonify(error=f"lỗi database: {e.__class__.__name__}"), 503

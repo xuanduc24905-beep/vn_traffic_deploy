@@ -6,6 +6,11 @@ import onnxruntime as ort
 
 CLASS_NAMES = ["motorcycle", "car", "bus", "truck"]
 
+# OpenCV mặc định mở thread = số core của máy (16) cho decode/resize. Trong pod limit 2 CPU,
+# nhiều request tiền xử lý song song (gthread) -> tranh CPU với onnxruntime. Ảnh 1 khung hình
+# resize 1 thread vẫn chỉ vài ms. CV_THREADS=0 nghĩa là để OpenCV tự chọn.
+cv2.setNumThreads(int(os.getenv("CV_THREADS", "1")))
+
 
 class Detector:
     def __init__(self, model_path, imgsz=640, iou_thres=0.7):

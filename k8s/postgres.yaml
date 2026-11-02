@@ -1,0 +1,85 @@
+# PostgreSQL lưu lịch sử dự đoán (khối "Database" trong sơ đồ).
+# Mật khẩu dưới đây chỉ dùng cho demo local; triển khai thật thì tạo Secret riêng, không commit.
+# ConfigMap postgres-init tạo từ docker/postgres/init.sql:
+#   kubectl create configmap postgres-init --from-file=docker/postgres/init.sql
+apiVersion: v1
+kind: Secret
+metadata:
+  name: postgres
+type: Opaque
+stringData:
+  POSTGRES_USER: vntraffic
+  POSTGRES_PASSWORD: vntraffic-demo
+  POSTGRES_DB: vntraffic
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: postgres-data
+spec:
+  accessModes: [ReadWriteOnce]
+  resources:
+    requests:
+      storage: 1Gi
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: postgres
+  labels:
+    app: postgres
+spec:
+  replicas: 1
+  strategy:
+    type: Recreate  # 1 volume RWO -> không chạy 2 pod Postgres cùng lúc
+  selector:
+    matchLabels:
+      app: postgres
+  template:
+    metadata:
+      labels:
+        app: postgres
+    spec:
+      containers:
+        - name: postgres
+          image: postgres:16-alpine
+          envFrom:
+            - secretRef:
+                name: postgres
+          env:
+            - name: PGDATA
+              value: /var/lib/postgresql/data/pgdata
+          ports:
+            - name: pg
+              containerPort: 5432
+          volumeMounts:
+            - name: data
+              mountPath: /var/lib/postgresql/data
+            - name: init
+              mountPath: /docker-entrypoint-initdb.d
+          readinessProbe:
+            exec:
+              command: [pg_isready, -U, vntraffic, -d, vntraffic]
+            periodSeconds: 5
+          resources:
+            requests: { cpu: 100m, memory: 128Mi }
+            limits: { cpu: "1", memory: 512Mi }
+      volumes:
+        - name: data
+          persistentVolumeClaim:
+            claimName: postgres-data
+        - name: init
+          configMap:
+            name: postgres-init
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: postgres
+spec:
+  selector:
+    app: postgres
+  ports:
+    - name: pg
+      port: 5432
+      targetPort: pg

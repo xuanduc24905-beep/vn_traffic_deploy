@@ -1,0 +1,59 @@
+{
+  "name": "vn-traffic-detector",
+  "displayName": "VN Traffic Detector",
+  "description": "Gửi ảnh camera giao thông tới API YOLOv8s (ONNX) và xem phương tiện phát hiện được ngay trong VS Code",
+  "version": "0.1.0",
+  "publisher": "xuanduc",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/xuanduc24905-beep/vn_traffic_deploy"
+  },
+  "engines": {
+    "vscode": "^1.85.0"
+  },
+  "categories": ["Machine Learning", "Other"],
+  "extensionKind": ["ui", "workspace"],
+  "main": "./src/extension.js",
+  "activationEvents": ["onStartupFinished"],
+  "contributes": {
+    "commands": [
+      { "command": "vnTraffic.detectImage", "title": "Phát hiện phương tiện trong ảnh", "category": "VN Traffic", "icon": "$(search)" },
+      { "command": "vnTraffic.showHistory", "title": "Lịch sử dự đoán", "category": "VN Traffic" },
+      { "command": "vnTraffic.checkHealth", "title": "Kiểm tra API", "category": "VN Traffic" },
+      { "command": "vnTraffic.switchTarget", "title": "Chọn server (local / production)", "category": "VN Traffic" }
+    ],
+    "menus": {
+      "explorer/context": [
+        { "command": "vnTraffic.detectImage", "when": "resourceExtname =~ /^\\.(jpe?g|png|bmp|webp)$/i", "group": "navigation@90" }
+      ],
+      "editor/title": [
+        { "command": "vnTraffic.detectImage", "when": "activeCustomEditorId == imagePreview.previewEditor", "group": "navigation" }
+      ]
+    },
+    "configuration": {
+      "title": "VN Traffic Detector",
+      "properties": {
+        "vnTraffic.target": {
+          "type": "string",
+          "enum": ["production", "local"],
+          "enumDescriptions": [
+            "Cụm Kubernetes sau Nginx proxy (ML Production Model)",
+            "docker-compose chạy trên máy (ML Local Model)"
+          ],
+          "default": "production",
+          "description": "Server nhận ảnh."
+        },
+        "vnTraffic.productionUrl": { "type": "string", "default": "http://localhost:8088", "description": "URL Nginx đứng trước cụm K8s." },
+        "vnTraffic.localUrl": { "type": "string", "default": "http://localhost:80", "description": "URL Nginx của docker-compose." },
+        "vnTraffic.confidence": { "type": "number", "default": 0.25, "minimum": 0, "maximum": 1, "description": "Ngưỡng confidence gửi kèm (?conf=)." },
+        "vnTraffic.timeoutMs": { "type": "number", "default": 30000, "description": "Timeout mỗi request (ms)." },
+        "vnTraffic.maxRetries": { "type": "number", "default": 3, "description": "Số lần thử lại khi server trả 503 (quá tải)." }
+      }
+    }
+  },
+  "scripts": {
+    "test": "node --test test/",
+    "package": "npx --yes @vscode/vsce@3.6.0 package --skip-license"
+  }
+}

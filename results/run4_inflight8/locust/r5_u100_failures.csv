@@ -1,0 +1,2 @@
+Method,Name,Error,Occurrences,First Seen,Last Seen
+POST,/predict,CatchResponseError('HTTP 503'),3173,2026-11-02T14:39:52Z,2026-11-02T14:41:21Z
