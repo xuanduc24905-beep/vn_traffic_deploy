@@ -1,4 +1,4 @@
-# 🚦 VN Traffic Deploy — Triển khai YOLOv8s phát hiện phương tiện giao thông Việt Nam
+#  VN Traffic Deploy — Triển khai YOLOv8s phát hiện phương tiện giao thông Việt Nam
 
 ![Python](https://img.shields.io/badge/Python-3.11-3776AB?logo=python&logoColor=white)
 ![ONNX Runtime](https://img.shields.io/badge/ONNX%20Runtime-1.31-005CED?logo=onnx&logoColor=white)
