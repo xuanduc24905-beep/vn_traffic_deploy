@@ -74,7 +74,7 @@ Một request đi qua: **client** (VS Code extension / Locust / curl) → **Ngin
 
 ```
 vn_traffic_deploy/
-├── models/                 best.pt (YOLOv8s), best.onnx
+├── models/                 best.pt, best.onnx — không có trong repo, xem models/README.md
 ├── scripts/
 │   ├── export_onnx.py      xuất ONNX (cần ultralytics, chỉ dùng ở máy dev)
 │   ├── verify_onnx.py      so sánh .pt và ONNX
@@ -99,6 +99,9 @@ vn_traffic_deploy/
 ## Chạy nhanh
 
 Yêu cầu: Python 3.11, Docker. Phần Kubernetes dùng Kubernetes tích hợp trong Docker Desktop (hoặc cluster bất kỳ có `kubectl`).
+
+> **Model không có sẵn trong repo.** Đặt `best.onnx` (và `best.pt` nếu cần export/kiểm tra) vào thư mục `models/`
+> trước khi chạy hoặc build image — xem [`models/README.md`](models/README.md).
 
 ### 1. Chạy local (không Docker)
 

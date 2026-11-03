@@ -6,3 +6,6 @@ node_modules/
 # Báo cáo có thông tin cá nhân (MSSV) -> chỉ giữ trên máy
 docs/report/*.docx
 docs/report/build_report.py
+# Model không đưa lên repo public (xem models/README.md)
+models/*.pt
+models/*.onnx
